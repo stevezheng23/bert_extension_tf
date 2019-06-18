@@ -6,6 +6,7 @@ import collections
 import csv
 import json
 import os
+import time
 
 import tensorflow as tf
 
@@ -580,12 +581,15 @@ def serving_input_fn():
         
         return tf.estimator.export.build_raw_serving_input_receiver_fn(features)()
 
-def precision_recall_f1(labels,
-                        predict,
-                        masks,
-                        label_list):
-    tp = tf.equal(labels, predict) * masks
-    tp_fp = tf.not_equal(predict * mask, ext_pad_id)
+def write_to_file(data_list,
+                  data_path):
+    data_folder = os.path.dirname(data_path)
+    if not os.path.exists(data_folder):
+        os.mkdir(data_folder)
+    
+    with open(data_path, "w") as file:
+        for data in data_list:
+            file.write("{0}\n".format(data))
 
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
@@ -718,7 +722,10 @@ def main(_):
         
         result = estimator.predict(input_fn=predict_input_fn)
         predicts = [data["predicts"].tolist() for _, data in enumerate(result)]
-        print(predicts[:10])
+        predicts = [([label_list[idx] for idx in predict], (predict + [0]).index(0)) for predict in predicts]
+        predicts = [" ".join([token for token in predict[1:max_len-1] if token != "X"]) for predict, max_len in predicts]
+        output_path = os.path.join(FLAGS.output_dir, "predict.{0}".format(time.time()))
+        write_to_file(predicts, output_path)
     
     if FLAGS.do_export:
         tf.logging.info("***** Running exporting *****")
