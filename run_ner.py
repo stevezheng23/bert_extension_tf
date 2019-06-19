@@ -581,7 +581,61 @@ def serving_input_fn():
         
         return tf.estimator.export.build_raw_serving_input_receiver_fn(features)()
 
-def write_to_file(data_list,
+def decode_predicts(predicts,
+                    label_list,
+                    max_seq_length,
+                    tokenizer):
+    predict_decodings = []
+    for predict in predicts:
+        input_tokens = tokenizer.convert_ids_to_tokens(predict["input_ids"])
+        input_mask = predict["input_mask"]
+        expected_labels = [label_list[idx] for idx in predict["label_ids"]]
+        predict_labels = [label_list[idx] for idx in predict["predict_ids"]]
+        
+        decoded_tokens = []
+        decoded_labels = []
+        decoded_predicts = []
+        for token, mask, expected_label, predict_label in zip(input_tokens, input_mask, expected_labels, predict_labels):
+            if mask == 0:
+                break
+            
+            if token in ["[CLS]", "[SEP]"]:
+                continue
+            
+            if token[:2] == "##":
+                decoded_tokens[-1] = decoded_tokens[-1] + token[2:]
+                continue
+            elif expected_label == "X":
+                decoded_tokens[-1] = decoded_tokens[-1] + token
+                continue
+            
+            if predict_label in ["[PAD]", "[CLS]", "[SEP]", "X"]:
+                predict_label = "O"
+            
+            decoded_tokens.append(token)
+            decoded_labels.append(expected_label)
+            decoded_predicts.append(predict_label)
+        
+        predict_decoding = {
+            "text": " ".join(decoded_tokens),
+            "label": " ".join(decoded_labels),
+            "predict": " ".join(decoded_predicts)
+        }
+        
+        predict_decodings.append(predict_decoding)
+    
+    return predict_decodings
+
+def write_to_json(data_list,
+                  data_path):
+    data_folder = os.path.dirname(data_path)
+    if not os.path.exists(data_folder):
+        os.mkdir(data_folder)
+    
+    with open(data_path, "w") as file:  
+        json.dump(data_list, file, indent=4)
+
+def write_to_text(data_list,
                   data_path):
     data_folder = os.path.dirname(data_path)
     if not os.path.exists(data_folder):
@@ -692,7 +746,6 @@ def main(_):
             drop_remainder=False)
         
         result = estimator.evaluate(input_fn=eval_input_fn)
-        print(result)
         precision = result["precision"]
         recall = result["recall"]
         f1_score = 2.0 * precision * recall / (precision + recall)
@@ -721,11 +774,22 @@ def main(_):
             drop_remainder=False)
         
         result = estimator.predict(input_fn=predict_input_fn)
-        predicts = [data["predicts"].tolist() for _, data in enumerate(result)]
-        predicts = [([label_list[idx] for idx in predict], (predict + [0]).index(0)) for predict in predicts]
-        predicts = [" ".join([token for token in predict[1:max_len-1] if token != "X"]) for predict, max_len in predicts]
+        
+        predicts = [{
+            "input_ids": feature.input_ids,
+            "input_mask": feature.input_mask,
+            "label_ids": feature.label_ids,
+            "predict_ids": predict["predicts"].tolist()
+        } for feature, predict in zip(predict_features, result)]
+        
+        predict_decodings = decode_predicts(
+            predicts=predicts,
+            label_list=label_list,
+            max_seq_length=FLAGS.max_seq_length,
+            tokenizer=tokenizer)
+        
         output_path = os.path.join(FLAGS.output_dir, "predict.{0}".format(time.time()))
-        write_to_file(predicts, output_path)
+        write_to_json(predict_decodings, output_path)
     
     if FLAGS.do_export:
         tf.logging.info("***** Running exporting *****")
