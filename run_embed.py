@@ -29,13 +29,6 @@ flags.DEFINE_integer(
     "The maximum total input sequence length after WordPiece tokenization. "
     "Sequences longer than this will be truncated, and sequences shorter than this will be padded.")
 
-flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
-flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
-flags.DEFINE_integer("predict_batch_size", 8, "Total batch size for predict.")
-
-flags.DEFINE_integer("save_checkpoints_steps", 1000, "How often to save the model checkpoint.")
-flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
-
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("num_tpu_cores", 8,"Only used if `use_tpu` is True. Total number of TPU cores to use.")
 flags.DEFINE_string("master", None, "[Optional] TensorFlow master URL.")
@@ -470,9 +463,9 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
-        save_checkpoints_steps=FLAGS.save_checkpoints_steps,
+        save_checkpoints_steps=1000,
         tpu_config=tf.contrib.tpu.TPUConfig(
-            iterations_per_loop=FLAGS.iterations_per_loop,
+            iterations_per_loop=1000,
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host))
     
@@ -489,7 +482,9 @@ def main(_):
         model_fn=model_fn,
         config=run_config,
         export_to_tpu=FLAGS.use_tpu,
-        train_batch_size=FLAGS.train_batch_size)
+        train_batch_size=1,
+        eval_batch_size=1,
+        predict_batch_size=1)
     
     features = convert_examples_to_features(
         examples=[PaddingInputExample()],
