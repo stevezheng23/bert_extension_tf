@@ -36,8 +36,8 @@ def preprocess(input_dir,
         train_data = {
             "id": str(uuid.uuid4()),
             "text": " ".join([word_vocab_list[int(token_vocab_id)] for token_vocab_id in query_id.split(' ')[1:-1]]),
-            "intent_label": intent_label_list[int(intent_id)],
-            "slot_label": " ".join([slot_label_list[int(token_slot_id)] for token_slot_id in slot_id.split(' ')[1:-1]])
+            "token_label": " ".join([slot_label_list[int(token_slot_id)] for token_slot_id in slot_id.split(' ')[1:-1]]),
+            "sent_label": intent_label_list[int(intent_id)],
         }
         
         train_processed_list.append(train_data)
@@ -60,8 +60,8 @@ def preprocess(input_dir,
         test_data = {
             "id": str(uuid.uuid4()),
             "text": " ".join([word_vocab_list[int(token_vocab_id)] for token_vocab_id in query_id.split(' ')[1:-1]]),
-            "intent_label": intent_label_list[int(intent_id)],
-            "slot_label": " ".join([slot_label_list[int(token_slot_id)] for token_slot_id in slot_id.split(' ')[1:-1]])
+            "token_label": " ".join([slot_label_list[int(token_slot_id)] for token_slot_id in slot_id.split(' ')[1:-1]]),
+            "sent_label": intent_label_list[int(intent_id)]
         }
         
         test_processed_list.append(test_data)
