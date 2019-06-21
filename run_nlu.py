@@ -206,7 +206,7 @@ def convert_single_example(ex_index,
             input_masks=[0] * max_seq_length,
             segment_ids=[0] * max_seq_length,
             token_label_ids=[0] * max_seq_length,
-            sent_label_ids=[0] * max_seq_length)
+            sent_label_id=0)
 
     token_label_map = {}
     for (i, token_label) in enumerate(token_label_list):
@@ -583,43 +583,22 @@ def model_fn_builder(bert_config,
             def metric_fn(token_label_ids,
                           sent_label_ids,
                           token_predict_ids,
-                          sent_predict_ids,
-                          token_label_list,
-                          sent_label_list):
-                token_label_map = {}
-                for (i, token_label) in enumerate(token_label_list):
-                    token_label_map[token_label] = i
-                
-                token_pad_id = tf.constant(token_label_map["[PAD]"], shape=[], dtype=tf.int32)
-                token_out_id = tf.constant(token_label_map["O"], shape=[], dtype=tf.int32)
-                token_x_id = tf.constant(token_label_map["X"], shape=[], dtype=tf.int32)
-                token_cls_id = tf.constant(token_label_map["[CLS]"], shape=[], dtype=tf.int32)
-                token_sep_id = tf.constant(token_label_map["[SEP]"], shape=[], dtype=tf.int32)
-                
-                masked_token_label_ids = (tf.cast(tf.not_equal(token_label_ids, token_pad_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_label_ids, token_out_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_label_ids, token_x_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_label_ids, token_cls_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_label_ids, token_sep_id), dtype=tf.int32))
-                
-                masked_token_predict_ids = (tf.cast(tf.not_equal(token_predict_ids, token_pad_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_predict_ids, token_out_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_predict_ids, token_x_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_predict_ids, token_cls_id), dtype=tf.int32) *
-                    tf.cast(tf.not_equal(token_predict_ids, token_sep_id), dtype=tf.int32))
-                
-                precision = tf.metrics.precision(labels=masked_token_label_ids, predictions=masked_token_predict_ids)
-                recall = tf.metrics.recall(labels=masked_token_label_ids, predictions=masked_token_predict_ids)
+                          sent_predict_ids):
+                token_precision = tf.metrics.precision(labels=token_label_ids, predictions=token_predict_ids)
+                token_recall = tf.metrics.recall(labels=token_label_ids, predictions=token_predict_ids)
+                sent_accuracy = tf.metrics.accuracy(labels=sent_label_ids, predictions=sent_predict_ids)
                 
                 metric = {
-                    "precision": precision,
-                    "recall": recall
+                    "token_precision": token_precision,
+                    "token_recall": token_recall,
+                    "sent_accuracy": sent_accuracy,
                 }
                 
                 return metric
             
-            eval_metrics = (metric_fn, [token_label_ids, sent_label_ids,
-                token_predict_ids, sent_predict_ids, token_label_list, sent_label_list])
+            masked_token_label_ids = get_masked_data(token_label_ids, token_label_list)
+            masked_token_predict_ids = get_masked_data(token_predict_ids, token_label_list)
+            eval_metrics = (metric_fn, [masked_token_label_ids, sent_label_ids, masked_token_predict_ids, sent_predict_ids])
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 loss=loss,
@@ -629,14 +608,34 @@ def model_fn_builder(bert_config,
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 predictions={
-                    "token_predict_ids": token_predict_ids,
-                    "sent_predict_ids": sent_predict_ids
+                    "token_predict": token_predict_ids,
+                    "sent_predict": sent_predict_ids
                 },
                 scaffold_fn=scaffold_fn)
         
         return output_spec
     
     return model_fn
+
+def get_masked_data(data_ids,
+                    label_list):
+    label_map = {}
+    for (i, label) in enumerate(label_list):
+        label_map[label] = i
+
+    pad_id = tf.constant(label_map["[PAD]"], shape=[], dtype=tf.int32)
+    out_id = tf.constant(label_map["O"], shape=[], dtype=tf.int32)
+    x_id = tf.constant(label_map["X"], shape=[], dtype=tf.int32)
+    cls_id = tf.constant(label_map["[CLS]"], shape=[], dtype=tf.int32)
+    sep_id = tf.constant(label_map["[SEP]"], shape=[], dtype=tf.int32)
+
+    masked_data_ids = (tf.cast(tf.not_equal(data_ids, pad_id), dtype=tf.int32) *
+        tf.cast(tf.not_equal(data_ids, out_id), dtype=tf.int32) *
+        tf.cast(tf.not_equal(data_ids, x_id), dtype=tf.int32) *
+        tf.cast(tf.not_equal(data_ids, cls_id), dtype=tf.int32) *
+        tf.cast(tf.not_equal(data_ids, sep_id), dtype=tf.int32))
+    
+    return masked_data_ids
 
 def serving_input_fn():
     with tf.variable_scope("export"):
@@ -657,14 +656,14 @@ def decode_predicts(predicts,
     for predict in predicts:
         input_tokens = tokenizer.convert_ids_to_tokens(predict["input_ids"])
         input_masks = predict["input_masks"]
-        expected_token_labels = [token_label_list[idx] for idx in predict["token_label_ids"]]
-        predict_token_labels = [token_label_list[idx] for idx in predict["token_predict_ids"]]
+        token_labels = [token_label_list[idx] for idx in predict["token_label_ids"]]
+        token_predicts = [token_label_list[idx] for idx in predict["token_predict_ids"]]
         
         decoded_tokens = []
         decoded_token_labels = []
         decoded_token_predicts = []
-        token_results = zip(input_tokens, input_masks, expected_token_labels, predict_token_labels)
-        for input_token, input_mask, expected_token_label, predict_token_label in token_results:
+        token_results = zip(input_tokens, input_masks, token_labels, token_predicts)
+        for input_token, input_mask, token_label, token_predict in token_results:
             if input_mask == 0:
                 break
             
@@ -674,21 +673,23 @@ def decode_predicts(predicts,
             if input_token[:2] == "##":
                 decoded_tokens[-1] = decoded_tokens[-1] + input_token[2:]
                 continue
-            elif expected_token_label == "X":
+            elif token_label == "X":
                 decoded_tokens[-1] = decoded_tokens[-1] + input_token
                 continue
             
-            if predict_token_label in ["[PAD]", "[CLS]", "[SEP]", "X"]:
-                predict_token_label = "O"
+            if token_predict in ["[PAD]", "[CLS]", "[SEP]", "X"]:
+                token_predict = "O"
             
             decoded_tokens.append(input_token)
-            decoded_token_labels.append(expected_token_label)
-            decoded_token_predicts.append(predict_token_label)
+            decoded_token_labels.append(token_label)
+            decoded_token_predicts.append(token_predict)
         
         decoded_predict = {
             "text": " ".join(decoded_tokens),
             "token_label": " ".join(decoded_token_labels),
-            "token_predict": " ".join(decoded_token_predicts)
+            "token_predict": " ".join(decoded_token_predicts),
+            "sent_label": sent_label_list[predict["sent_label_id"]],
+            "sent_predict": sent_label_list[predict["sent_predict_id"]],
         }
         
         decoded_predicts.append(decoded_predict)
@@ -819,14 +820,18 @@ def main(_):
             drop_remainder=False)
         
         result = estimator.evaluate(input_fn=eval_input_fn)
-        precision = result["precision"]
-        recall = result["recall"]
-        f1_score = 2.0 * precision * recall / (precision + recall)
+        
+        token_precision = result["token_precision"]
+        token_recall = result["token_recall"]
+        token_f1_score = 2.0 * token_precision * token_recall / (token_precision + token_recall)
+        
+        sent_accuracy = result["sent_accuracy"]
         
         tf.logging.info("***** Evaluation result *****")
-        tf.logging.info("  Precision = %s", str(precision))
-        tf.logging.info("  Recall = %s", str(recall))
-        tf.logging.info("  F1 score = %s", str(f1_score))
+        tf.logging.info("  Precision (token-level) = %s", str(token_precision))
+        tf.logging.info("  Recall (token-level) = %s", str(token_recall))
+        tf.logging.info("  F1 score (token-level) = %s", str(token_f1_score))
+        tf.logging.info("  Accuracy (sent-level) = %s", str(sent_accuracy))
     
     if FLAGS.do_predict:
         predict_examples = processor.get_test_examples()
@@ -853,9 +858,9 @@ def main(_):
             "input_ids": feature.input_ids,
             "input_masks": feature.input_masks,
             "token_label_ids": feature.token_label_ids,
-            "sent_label_ids": feature.sent_label_ids,
-            "token_predict_ids": predict["token_predict_ids"].tolist(),
-            "sent_predict_ids": predict["sent_predict_ids"].tolist()
+            "sent_label_id": feature.sent_label_id,
+            "token_predict_ids": predict["token_predict"].tolist(),
+            "sent_predict_id": predict["sent_predict"].tolist()
         } for feature, predict in zip(predict_features, result)]
         
         decoded_predicts = decode_predicts(
