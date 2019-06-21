@@ -4,16 +4,18 @@ import os.path
 import uuid
 
 def add_arguments(parser):
-    parser.add_argument("--format", help="format to generate", required=True)
-    parser.add_argument("--input_file", help="path to input file", required=True)
-    parser.add_argument("--output_file", help="path to output file", required=True)
+    parser.add_argument("--data_format", help="data format", required=True)
+    parser.add_argument("--input_file", help="input data file", required=True)
+    parser.add_argument("--output_file", help="output data file", required=True)
 
-def preprocess(file_name):
-    if not os.path.exists(file_name):
+def preprocess(input_file,
+               output_file,
+               data_format):
+    if not os.path.exists(input_file):
         raise FileNotFoundError("file not found")
     
     processed_data_list = []
-    with open(file_name, "r") as file:
+    with open(input_file, "r") as file:
         token_list = []
         label_list = []
         for line in file:
@@ -42,25 +44,26 @@ def preprocess(file_name):
             token_list.append(token)
             label_list.append(label)
     
-    return processed_data_list
+    if data_format == "json":
+        save_json(processed_data_list, output_file)
+    elif data_format == "text":
+        save_text(processed_data_list, output_file)
 
-def output_to_json(data_list, file_name):
-    with open(file_name, "w") as file:
+def save_json(data_list,
+              data_path):
+    with open(data_path, "w") as file:
         data_json = json.dumps(data_list, indent=4)
         file.write(data_json)
 
-def output_to_plain(data_list, file_name):
-    with open(file_name, "wb") as file:
+def save_text(data_list,
+              data_path):
+    with open(data_path, "wb") as file:
         for data in data_list:
-            data_plain = "{0}\t{1}\t{2}\r\n".format(data["id"], data["text"], data["label"])
-            file.write(data_plain.encode("utf-8"))
+            data_text = "{0}\t{1}\t{2}\r\n".format(data["id"], data["text"], data["label"])
+            file.write(data_text.encode("utf-8"))
 
 def main(args):
-    processed_data = preprocess(args.input_file)
-    if (args.format == 'json'):
-        output_to_json(processed_data, args.output_file)
-    elif (args.format == 'plain'):
-        output_to_plain(processed_data, args.output_file)
+    preprocess(args.input_file, args.output_file, args.data_format)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
