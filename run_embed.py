@@ -506,6 +506,7 @@ def main(_):
 if __name__ == "__main__":
     flags.mark_flag_as_required("bert_config_file")
     flags.mark_flag_as_required("vocab_file")
+    flags.mark_flag_as_required("init_checkpoint")
     flags.mark_flag_as_required("output_dir")
     flags.mark_flag_as_required("export_dir")
     tf.app.run()
