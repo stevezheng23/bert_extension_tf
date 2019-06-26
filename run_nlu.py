@@ -464,53 +464,59 @@ def create_model(bert_config,
     
     # If you want to use sentence-level output, use model.get_pooled_output()
     # If you want to use token-level output, use model.get_sequence_output()
-    token_result = model.get_sequence_output()
-    token_result_mask = tf.cast(tf.expand_dims(input_masks, axis=-1), dtype=tf.float32)
+    with tf.variable_scope("token", reuse=tf.AUTO_REUSE):
+        token_result = model.get_sequence_output()
+        token_result_mask = tf.cast(tf.expand_dims(input_masks, axis=-1), dtype=tf.float32)
+        
+        token_kernel_initializer = tf.glorot_uniform_initializer(seed=4632, dtype=tf.float32)
+        token_bias_initializer = tf.zeros_initializer
+        token_dense_layer = tf.keras.layers.Dense(units=len(token_label_list), activation=None, use_bias=True,
+            kernel_initializer=token_kernel_initializer, bias_initializer=token_bias_initializer,
+            kernel_regularizer=None, bias_regularizer=None, trainable=True)
+        
+        token_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=715)
+        
+        token_result = token_dense_layer(token_result)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            token_result = token_dropout_layer(token_result)
+        
+        masked_token_predict = token_result * token_result_mask + MIN_FLOAT * (1 - token_result_mask)
+        token_predict_ids = tf.cast(tf.argmax(tf.nn.softmax(masked_token_predict, axis=-1), axis=-1), dtype=tf.int32)
     
-    token_kernel_initializer = tf.glorot_uniform_initializer(seed=4632, dtype=tf.float32)
-    token_bias_initializer = tf.zeros_initializer
-    token_dense_layer = tf.keras.layers.Dense(units=len(token_label_list), activation=None, use_bias=True,
-        kernel_initializer=token_kernel_initializer, bias_initializer=token_bias_initializer,
-        kernel_regularizer=None, bias_regularizer=None, trainable=True)
-    
-    token_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=715)
-    
-    token_result = token_dense_layer(token_result)
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        token_result = token_dropout_layer(token_result)
-    
-    masked_token_predict = token_result * token_result_mask + MIN_FLOAT * (1 - token_result_mask)
-    token_predict_ids = tf.cast(tf.argmax(tf.nn.softmax(masked_token_predict, axis=-1), axis=-1), dtype=tf.int32)
-    
-    sent_result = model.get_pooled_output()
-    sent_result_mask = tf.cast(tf.reduce_max(input_masks, axis=-1, keepdims=True), dtype=tf.float32)
-    
-    sent_kernel_initializer = tf.glorot_uniform_initializer(seed=140, dtype=tf.float32)
-    sent_bias_initializer = tf.zeros_initializer
-    sent_dense_layer = tf.keras.layers.Dense(units=len(sent_label_list), activation=None, use_bias=True,
-        kernel_initializer=sent_kernel_initializer, bias_initializer=sent_bias_initializer,
-        kernel_regularizer=None, bias_regularizer=None, trainable=True)
-    
-    sent_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=9001)
-    
-    sent_result = sent_dense_layer(sent_result)
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        sent_result = sent_dropout_layer(sent_result)
-    
-    masked_sent_predict = sent_result * sent_result_mask + MIN_FLOAT * (1 - sent_result_mask)
-    sent_predict_ids = tf.cast(tf.argmax(tf.nn.softmax(masked_sent_predict, axis=-1), axis=-1), dtype=tf.int32)
+    with tf.variable_scope("sent", reuse=tf.AUTO_REUSE):
+        sent_result = model.get_pooled_output()
+        sent_result_mask = tf.cast(tf.reduce_max(input_masks, axis=-1, keepdims=True), dtype=tf.float32)
+        
+        sent_kernel_initializer = tf.glorot_uniform_initializer(seed=140, dtype=tf.float32)
+        sent_bias_initializer = tf.zeros_initializer
+        sent_dense_layer = tf.keras.layers.Dense(units=len(sent_label_list), activation=None, use_bias=True,
+            kernel_initializer=sent_kernel_initializer, bias_initializer=sent_bias_initializer,
+            kernel_regularizer=None, bias_regularizer=None, trainable=True)
+        
+        sent_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=9001)
+        
+        sent_result = sent_dense_layer(sent_result)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            sent_result = sent_dropout_layer(sent_result)
+        
+        masked_sent_predict = sent_result * sent_result_mask + MIN_FLOAT * (1 - sent_result_mask)
+        sent_predict_ids = tf.cast(tf.argmax(tf.nn.softmax(masked_sent_predict, axis=-1), axis=-1), dtype=tf.int32)
     
     loss = tf.constant(0.0, dtype=tf.float32)
-    if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        if token_label_ids is not None:
+    if mode not in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
+        return loss, token_predict_ids, sent_predict_ids
+    
+    if token_label_ids is not None:
+        with tf.variable_scope("token_loss", reuse=tf.AUTO_REUSE):
             token_label = tf.cast(token_label_ids, dtype=tf.float32)
             token_label_mask = tf.cast(input_masks, dtype=tf.float32)
             masked_token_label = tf.cast(token_label * token_label_mask, dtype=tf.int32)
             token_cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=masked_token_label, logits=masked_token_predict)
             token_loss = tf.reduce_sum(token_cross_entropy * token_label_mask) / tf.reduce_sum(tf.reduce_max(token_label_mask, axis=-1))
             loss = loss + token_loss
-        
-        if sent_label_ids is not None:
+    
+    if sent_label_ids is not None:
+        with tf.variable_scope("sent_loss", reuse=tf.AUTO_REUSE):
             sent_label = tf.cast(sent_label_ids, dtype=tf.float32)
             sent_label_mask = tf.cast(tf.reduce_max(input_masks, axis=-1), dtype=tf.float32)
             masked_sent_label = tf.cast(sent_label * sent_label_mask, dtype=tf.int32)

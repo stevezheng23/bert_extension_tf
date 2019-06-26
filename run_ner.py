@@ -433,33 +433,35 @@ def create_model(bert_config,
     
     # If you want to use sentence-level output, use model.get_pooled_output()
     # If you want to use token-level output, use model.get_sequence_output()
-    result = model.get_sequence_output()
-    result_mask = tf.cast(tf.expand_dims(input_mask, axis=-1), dtype=tf.float32)
+    with tf.variable_scope("ner", reuse=tf.AUTO_REUSE):
+        result = model.get_sequence_output()
+        result_mask = tf.cast(tf.expand_dims(input_mask, axis=-1), dtype=tf.float32)
+        
+        kernel_initializer = tf.glorot_uniform_initializer(seed=203, dtype=tf.float32)
+        bias_initializer = tf.zeros_initializer
+        dense_layer = tf.keras.layers.Dense(units=len(label_list), activation=None, use_bias=True,
+            kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=None, bias_regularizer=None, trainable=True)
+        
+        dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=981)
+        
+        result = dense_layer(result)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            result = dropout_layer(result)
+        
+        masked_result = result * result_mask + MIN_FLOAT * (1 - result_mask)
+        predicts = tf.cast(tf.argmax(tf.nn.softmax(masked_result, axis=-1), axis=-1), dtype=tf.int32)
     
-    kernel_initializer = tf.glorot_uniform_initializer(seed=203, dtype=tf.float32)
-    bias_initializer = tf.zeros_initializer
-    dense_layer = tf.keras.layers.Dense(units=len(label_list), activation=None, use_bias=True,
-        kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
-        kernel_regularizer=None, bias_regularizer=None, trainable=True)
-    
-    dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=981)
-    
-    result = dense_layer(result)
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        result = dropout_layer(result)
-    
-    masked_result = result * result_mask + MIN_FLOAT * (1 - result_mask)
-    predicts = tf.cast(tf.argmax(tf.nn.softmax(masked_result, axis=-1), axis=-1), dtype=tf.int32)
-    
-    loss = None
+    loss = tf.constant(0.0, dtype=tf.float32)
     if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL] and label_ids is not None:
-        label = tf.cast(label_ids, dtype=tf.float32)
-        label_mask = tf.cast(input_mask, dtype=tf.float32)
-        
-        masked_label = tf.cast(label * label_mask, dtype=tf.int32)
-        
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=masked_label, logits=masked_result)
-        loss = tf.reduce_sum(cross_entropy * label_mask) / tf.reduce_sum(tf.reduce_max(label_mask, axis=-1))
+        with tf.variable_scope("loss", reuse=tf.AUTO_REUSE):
+            label = tf.cast(label_ids, dtype=tf.float32)
+            label_mask = tf.cast(input_mask, dtype=tf.float32)
+            
+            masked_label = tf.cast(label * label_mask, dtype=tf.int32)
+            
+            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=masked_label, logits=masked_result)
+            loss = tf.reduce_sum(cross_entropy * label_mask) / tf.reduce_sum(tf.reduce_max(label_mask, axis=-1))
     
     return loss, predicts
 
