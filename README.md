@@ -13,6 +13,47 @@ on 11 NLP tasks ranging from question answering, natural, language inference and
 * [CoNLL2003](https://www.clips.uantwerpen.be/conll2003/ner/) is a multi-task dataset, which contains 3 sub-tasks, POS tagging, syntactic chunking and NER. For NER sub-task, it contains 4 types of named entities: persons, locations, organizations and names of miscellaneous entities that do not belong to the previous three groups.
 * [ATIS](https://catalog.ldc.upenn.edu/docs/LDC93S4B/corpus.html) is NLU dataset in airline travel domain. The dataset contains 4978 train and 893 test utterances classified into one of 26 intents, and each token in utterance is labeled with tags from 128 slot filling tags in IOB format.
 
+## Usage
+* Preprocess data
+```bash
+python prepro/prepro_conll.py \
+  --data_format json \
+  --input_file data/ner/conll2003/raw/eng.xxx \
+  --output_file data/ner/conll2003/xxx-conll2003/xxx-conll2003.json
+```
+* Run experiment
+```bash
+CUDA_VISIBLE_DEVICES=0 python run_ner.py \
+    --task_name=conll2003 \
+    --do_train=true \
+    --do_eval=true \
+    --do_predict=true \
+    --do_export=true \
+    --data_dir=data/ner/conll2003 \
+    --vocab_file=model/cased_L-12_H-768_A-12/vocab.txt \
+    --bert_config_file=model/cased_L-12_H-768_A-12/bert_config.json \
+    --init_checkpoint=model/cased_L-12_H-768_A-12/bert_model.ckpt \
+    --max_seq_length=128 \
+    --train_batch_size=32 \
+    --eval_batch_size=8 \
+    --predict_batch_size=8 \
+    --learning_rate=2e-5 \
+    --num_train_epochs=5.0 \
+    --output_dir=output/ner/conll2003/debug
+    --export_dir=output/ner/conll2003/export
+```
+* Visualize summary
+```bash
+tensorboard --logdir=output/ner/conll2003
+```
+* Setup service
+```bash
+docker run -p 8500:8500 \
+  -v output/ner/conll2003/export/xxxxx:models/ner \
+  -e MODEL_NAME=ner \
+  -t tensorflow/serving
+```
+
 ## Reference
 * Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova. [BERT: Pre-training of deep bidirectional transformers for language understanding](https://arxiv.org/abs/1810.04805) [2018]
 * Matthew E. Peters, Mark Neumann, Mohit Iyyer, Matthew Gardner, Christopher T Clark, Kenton Lee,
