@@ -1,6 +1,5 @@
 # BERT Extension
-BERT (Bidirectional Encoder Representations from Transformers) is a generalized autoencoding pretraining method proposed by Google AI Language team, which obtains new state-of-the-art results
-on 11 NLP tasks ranging from question answering, natural, language inference and sentiment analysis. BERT is designed to pretrain deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which allows it to be easily finetuned for downstream tasks without substantial taskspecific architecture modifications. This project is aiming to provide extensions built on top of current BERT and bring power of BERT to other NLP tasks like NER and NLU.
+BERT (Bidirectional Encoder Representations from Transformers) is a generalized autoencoding pretraining method proposed by Google AI Language team, which obtains new state-of-the-art results on 11 NLP tasks ranging from question answering, natural, language inference and sentiment analysis. BERT is designed to pretrain deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which allows it to be easily finetuned for downstream tasks without substantial task-specific architecture modifications. This project is aiming to provide extensions built on top of current BERT and bring power of BERT to other NLP tasks like NER and NLU.
 <p align="center"><img src="/docs/bert.tasks.png" width=800></p>
 <p align="center"><i>Figure 1: Illustrations of fine-tuning BERT on different tasks</i></p>
 
@@ -53,6 +52,30 @@ docker run -p 8500:8500 \
   -e MODEL_NAME=ner \
   -t tensorflow/serving
 ```
+
+## Experiment
+### CoNLL2003-NER
+<p align="center"><img src="/docs/bert.ner.png" width=500></p>
+<p align="center"><i>Figure 2: Illustrations of fine-tuning BERT on NER task</i></p>
+
+|    CoNLL2003 - NER  |      Dev      |      Test     |
+|:-------------------:|:-------------:|:-------------:|
+|       F1 Score      |     95.84     |     91.80     |
+|      Precision      |     95.53     |     91.39     |
+|         Recall      |     96.14     |     92.20     |
+
+<p><i>Table 1: The performance of BERT-large finetuned model on CoNLL2003-NER task with setting: batch size = 32, learning rate = 2e-5, num epoch = 5.0</i></p>
+
+### ATIS-NLU
+<p align="center"><img src="/docs/bert.nlu.png" width=500></p>
+<p align="center"><i>Figure 3: Illustrations of fine-tuning BERT on NLU task</i></p>
+
+|      ATIS - NLU     |      Test     |
+|:-------------------:|:-------------:|
+|  Accuracy - Intent  |     97.42     |
+|    F1 Score - Slot  |     95.33     |
+
+<p><i>Table 2: The performance of BERT-large finetuned model on ATIS-NLU task with setting: batch size = 32, learning rate = 2e-5, num epoch = 5.0</i></p>
 
 ## Reference
 * Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova. [BERT: Pre-training of deep bidirectional transformers for language understanding](https://arxiv.org/abs/1810.04805) [2018]
