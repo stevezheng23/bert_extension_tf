@@ -1,5 +1,5 @@
 # BERT Extension
-BERT (Bidirectional Encoder Representations from Transformers) is a generalized autoencoding pretraining method proposed by Google AI Language team, which obtains new state-of-the-art results on 11 NLP tasks ranging from question answering, natural, language inference and sentiment analysis. BERT is designed to pretrain deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which allows it to be easily finetuned for downstream tasks without substantial task-specific architecture modifications. This project is aiming to provide extensions built on top of current BERT and bring power of BERT to other NLP tasks like NER and NLU.
+[BERT](https://github.com/google-research/bert/) (Bidirectional Encoder Representations from Transformers) is a generalized autoencoding pretraining method proposed by Google AI Language team, which obtains new state-of-the-art results on 11 NLP tasks ranging from question answering, natural, language inference and sentiment analysis. BERT is designed to pretrain deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers, which allows it to be easily finetuned for downstream tasks without substantial task-specific architecture modifications. This project is aiming to provide extensions built on top of current BERT and bring power of BERT to other NLP tasks like NER and NLU.
 <p align="center"><img src="/docs/bert.tasks.png" width=800></p>
 <p align="center"><i>Figure 1: Illustrations of fine-tuning BERT on different tasks</i></p>
 
@@ -10,7 +10,7 @@ BERT (Bidirectional Encoder Representations from Transformers) is a generalized 
 
 ## DataSet
 * [CoNLL2003](https://www.clips.uantwerpen.be/conll2003/ner/) is a multi-task dataset, which contains 3 sub-tasks, POS tagging, syntactic chunking and NER. For NER sub-task, it contains 4 types of named entities: persons, locations, organizations and names of miscellaneous entities that do not belong to the previous three groups.
-* [ATIS](https://catalog.ldc.upenn.edu/docs/LDC93S4B/corpus.html) is NLU dataset in airline travel domain. The dataset contains 4978 train and 893 test utterances classified into one of 26 intents, and each token in utterance is labeled with tags from 128 slot filling tags in IOB format.
+* [ATIS](https://catalog.ldc.upenn.edu/docs/LDC93S4B/corpus.html) (Airline Travel Information System) is NLU dataset in airline travel domain. The dataset contains 4978 train and 893 test utterances classified into one of 26 intents, and each token in utterance is labeled with tags from 128 slot filling tags in IOB format.
 
 ## Usage
 * Preprocess data
