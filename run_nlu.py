@@ -8,6 +8,7 @@ import json
 import os
 import time
 
+import numpy as np
 import tensorflow as tf
 
 from bert import modeling
@@ -28,6 +29,9 @@ flags.DEFINE_string("export_dir", None, "The export directory where the saved mo
 
 flags.DEFINE_string("init_checkpoint", None, "Initial checkpoint (usually from a pre-trained BERT model).")
 flags.DEFINE_bool("do_lower_case", True, "Whether to lower case the input text. True for uncased models and False for cased models.")
+
+flags.DEFINE_integer("random_seed", 100, "Random seed for weight initialzation.")
+flags.DEFINE_string("predict_tag", None, "Predict tag for predict result tracking.")
 
 flags.DEFINE_integer(
     "max_seq_length", 128,
@@ -356,7 +360,7 @@ def input_fn_builder(features,
         
         if is_training:
             d = d.repeat()
-            d = d.shuffle(buffer_size=100)
+            d = d.shuffle(buffer_size=100, seed=np.random.randint(10000))
         
         d = d.batch(batch_size=batch_size, drop_remainder=drop_remainder)
         return d
@@ -431,7 +435,7 @@ def file_based_input_fn_builder(input_file,
         
         if is_training:
             d = d.repeat()
-            d = d.shuffle(buffer_size=100)
+            d = d.shuffle(buffer_size=100, seed=np.random.randint(10000))
         
         d = d.apply(tf.contrib.data.map_and_batch(
             lambda record: _decode_record(record, name_to_features),
@@ -468,13 +472,13 @@ def create_model(bert_config,
         token_result = model.get_sequence_output()
         token_result_mask = tf.cast(tf.expand_dims(input_masks, axis=-1), dtype=tf.float32)
         
-        token_kernel_initializer = tf.glorot_uniform_initializer(seed=4632, dtype=tf.float32)
+        token_kernel_initializer = tf.glorot_uniform_initializer(seed=np.random.randint(10000), dtype=tf.float32)
         token_bias_initializer = tf.zeros_initializer
         token_dense_layer = tf.keras.layers.Dense(units=len(token_label_list), activation=None, use_bias=True,
             kernel_initializer=token_kernel_initializer, bias_initializer=token_bias_initializer,
             kernel_regularizer=None, bias_regularizer=None, trainable=True)
         
-        token_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=715)
+        token_dropout_layer = tf.keras.layers.Dropout(rate=0.1, seed=np.random.randint(10000))
         
         token_result = token_dense_layer(token_result)
         if mode == tf.estimator.ModeKeys.TRAIN:
@@ -724,6 +728,8 @@ def write_to_text(data_list,
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
     
+    np.random.seed(FLAGS.random_seed)
+    
     bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
     
     if FLAGS.max_seq_length > bert_config.max_position_embeddings:
@@ -876,7 +882,8 @@ def main(_):
             max_seq_length=FLAGS.max_seq_length,
             tokenizer=tokenizer)
         
-        output_path = os.path.join(FLAGS.output_dir, "predict.{0}".format(time.time()))
+        predict_tag = FLAGS.predict_tag if FLAGS.predict_tag else str(time.time())
+        output_path = os.path.join(FLAGS.output_dir, "predict.{0}.json".format(predict_tag))
         write_to_json(decoded_predicts, output_path)
     
     if FLAGS.do_export:
