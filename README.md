@@ -58,24 +58,24 @@ docker run -p 8500:8500 \
 <p align="center"><img src="/docs/bert.ner.png" width=500></p>
 <p align="center"><i>Figure 2: Illustrations of fine-tuning BERT on NER task</i></p>
 
-|    CoNLL2003 - NER  |      Dev      |      Test     |
-|:-------------------:|:-------------:|:-------------:|
-|       F1 Score      |     95.84     |     91.80     |
-|      Precision      |     95.53     |     91.39     |
-|         Recall      |     96.14     |     92.20     |
+|    CoNLL2003 - NER  |   Avg. (5-run)   |      Best     |
+|:-------------------:|:----------------:|:-------------:|
+|      Precision      |   91.37 ± 0.33   |     91.87     |
+|         Recall      |   92.37 ± 0.25   |     92.68     |
+|       F1 Score      |   91.87 ± 0.28   |     92.27     |
 
-<p><i>Table 1: The performance of BERT-large finetuned model on CoNLL2003-NER task with setting: batch size = 32, learning rate = 2e-5, num epoch = 5.0</i></p>
+<p><i>Table 1: The test set performance of BERT-large finetuned model on CoNLL2003-NER task with setting: batch size = 16, max length = 128, learning rate = 2e-5, num epoch = 5.0</i></p>
 
 ### ATIS-NLU
 <p align="center"><img src="/docs/bert.nlu.png" width=500></p>
 <p align="center"><i>Figure 3: Illustrations of fine-tuning BERT on NLU task</i></p>
 
-|      ATIS - NLU     |      Test     |
-|:-------------------:|:-------------:|
-|  Accuracy - Intent  |     97.42     |
-|    F1 Score - Slot  |     95.33     |
+|      ATIS - NLU     |   Avg. (5-run)   |      Best     |
+|:-------------------:|:----------------:|:-------------:|
+|  Accuracy - Intent  |   97.38 ± 0.19   |     97.65     |
+|    F1 Score - Slot  |   95.61 ± 0.09   |     95.53     |
 
-<p><i>Table 2: The performance of BERT-large finetuned model on ATIS-NLU task with setting: batch size = 32, learning rate = 2e-5, num epoch = 5.0</i></p>
+<p><i>Table 2: The test set performance of BERT-large finetuned model on ATIS-NLU task with setting: batch size = 16, max length = 128, learning rate = 2e-5, num epoch = 5.0</i></p>
 
 ## Reference
 * Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova. [BERT: Pre-training of deep bidirectional transformers for language understanding](https://arxiv.org/abs/1810.04805) [2018]
