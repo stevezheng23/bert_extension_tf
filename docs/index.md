@@ -12,7 +12,7 @@
 ## Experiment
 ### CoNLL2003-NER
 
-![bert_ner]({{ site.url }}/bert_extension_tf/bert.ner.png){:width="800px"}
+![bert_ner]({{ site.url }}/bert_extension_tf/bert.ner.png){:width="500px"}
 
 *Figure 2: Illustrations of fine-tuning BERT on NER task*
 
@@ -26,7 +26,7 @@
 
 ### ATIS-NLU
 
-![bert_nlu]({{ site.url }}/bert_extension_tf/bert.nlu.png){:width="800px"}
+![bert_nlu]({{ site.url }}/bert_extension_tf/bert.nlu.png){:width="500px"}
 
 *Figure 3: Illustrations of fine-tuning BERT on NLU task*
 
