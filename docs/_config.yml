@@ -1,1 +1,3 @@
 theme: jekyll-theme-cayman
+title: BERT Extension
+description: This project is a BERT extension built on top of official BERT implementation. It extends the powet of current BERT model to other NLP tasks (e.g. NER, NLU, etc.)
