@@ -408,7 +408,7 @@ def create_model(bert_config,
                  sent_label_list,
                  mode,
                  use_tpu):
-    """Creates a NLU model."""
+    """Creates a Classifier model."""
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     model = modeling.BertModel(
         config=bert_config,
@@ -437,12 +437,13 @@ def create_model(bert_config,
             sent_result = sent_dropout_layer(sent_result)
         
         masked_sent_predict = sent_result * sent_result_mask + MIN_FLOAT * (1 - sent_result_mask)
-        sent_predict_ids = tf.cast(tf.argmax(tf.nn.softmax(masked_sent_predict, axis=-1), axis=-1), dtype=tf.int32)
-        sent_predict_scores = tf.cast(tf.reduce_max(tf.nn.softmax(masked_sent_predict, axis=-1), axis=-1), dtype=tf.float32)
+        sent_predict_probs = tf.nn.softmax(masked_sent_predict, axis=-1)
+        sent_predict_ids = tf.cast(tf.argmax(sent_predict_probs, axis=-1), dtype=tf.int32)
+        sent_predict_scores = tf.reduce_max(sent_predict_probs, axis=-1)
     
     loss = tf.constant(0.0, dtype=tf.float32)
     if mode not in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        return loss, sent_predict_ids, sent_predict_scores
+        return loss, sent_predict_ids, sent_predict_scores, sent_predict_probs
     
     if sent_label_ids is not None:
         with tf.variable_scope("sent_loss", reuse=tf.AUTO_REUSE):
@@ -453,7 +454,7 @@ def create_model(bert_config,
             sent_loss = tf.reduce_sum(sent_cross_entropy * sent_label_mask) / tf.reduce_sum(tf.reduce_max(sent_label_mask, axis=-1))
             loss = loss + sent_loss
     
-    return loss, sent_predict_ids, sent_predict_scores
+    return loss, sent_predict_ids, sent_predict_scores, sent_predict_probs
 
 def model_fn_builder(bert_config,
                      sent_label_list,
@@ -477,8 +478,8 @@ def model_fn_builder(bert_config,
         segment_ids = features["segment_ids"]
         sent_label_ids = features["sent_label_ids"] if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL] else None
         
-        loss, sent_predict_ids, sent_predict_scores = create_model(bert_config, input_ids, input_masks,
-            segment_ids, sent_label_ids, sent_label_list, mode, use_tpu)
+        loss, sent_predict_ids, sent_predict_scores, sent_predict_probs = create_model(bert_config,
+            input_ids, input_masks, segment_ids, sent_label_ids, sent_label_list, mode, use_tpu)
         
         tvars = tf.trainable_variables()
         initialized_variable_names = {}
@@ -534,7 +535,8 @@ def model_fn_builder(bert_config,
                 mode=mode,
                 predictions={
                     "sent_predict_id": sent_predict_ids,
-                    "sent_predict_score": sent_predict_scores
+                    "sent_predict_score": sent_predict_scores,
+                    "sent_predict_prob": sent_predict_probs
                 },
                 scaffold_fn=scaffold_fn)
         
@@ -600,6 +602,7 @@ def decode_predicts(predicts,
             "sent_label": sent_label_list[predict["sent_label_id"]],
             "sent_predict": sent_label_list[predict["sent_predict_id"]],
             "sent_score": float(predict["sent_predict_score"]),
+            "sent_probs": [float(prob) for prob in predict["sent_predict_prob"]]
         }
         
         decoded_predicts.append(decoded_predict)
@@ -758,8 +761,9 @@ def main(_):
             "input_ids": feature.input_ids,
             "input_masks": feature.input_masks,
             "sent_label_id": feature.sent_label_id,
-            "sent_predict_id": predict["sent_predict_id"].tolist(),
-            "sent_predict_score": predict["sent_predict_score"].tolist()
+            "sent_predict_id": predict["sent_predict_id"],
+            "sent_predict_score": predict["sent_predict_score"],
+            "sent_predict_prob": predict["sent_predict_prob"].tolist()
         } for feature, predict in zip(predict_features, result)]
         
         decoded_predicts = decode_predicts(
