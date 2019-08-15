@@ -545,7 +545,7 @@ def create_model(bert_config,
         if mode == tf.estimator.ModeKeys.TRAIN:
             ability_result = ability_dropout_layer(ability_result)
         
-        masked_ability_predict = ability_result * ability_result_mask + MIN_FLOAT * (1 - abilityt_result_mask)
+        masked_ability_predict = ability_result * ability_result_mask + MIN_FLOAT * (1 - ability_result_mask)
         ability_predict_probs = tf.nn.softmax(masked_ability_predict, axis=-1)
         ability_predict_ids = tf.cast(tf.argmax(ability_predict_probs, axis=-1), dtype=tf.int32)
         ability_predict_scores = tf.reduce_max(ability_predict_probs, axis=-1)
@@ -685,11 +685,11 @@ def model_fn_builder(bert_config,
                     "sent_embed": sent_embed,
                     "intent_predict_id": intent_predict_ids,
                     "intent_predict_score": intent_predict_scores,
-                    "intent_predict_prob": intent_predict_probs
+                    "intent_predict_prob": intent_predict_probs,
                     "topic_predict_id": topic_predict_ids,
                     "topic_predict_score": topic_predict_scores,
-                    "topic_predict_prob": topic_predict_probs
-                    "abilityt_predict_id": ability_predict_ids,
+                    "topic_predict_prob": topic_predict_probs,
+                    "ability_predict_id": ability_predict_ids,
                     "ability_predict_score": ability_predict_scores,
                     "ability_predict_prob": ability_predict_probs
                 },
@@ -792,7 +792,7 @@ def main(_):
     
     data_dir = FLAGS.data_dir
     task_name = FLAGS.task_name.lower()
-    processor = ClassificationProcessor(data_dir, task_name)
+    processor = IntentProcessor(data_dir, task_name)
     intent_label_list = processor.get_intent_labels()
     topic_label_list = processor.get_topic_labels()
     ability_label_list = processor.get_ability_labels()

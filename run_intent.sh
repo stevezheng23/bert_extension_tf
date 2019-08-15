@@ -84,7 +84,7 @@ CUDA_VISIBLE_DEVICES=${GPUDEVICE} python run_intent.py \
 --do_predict=true \
 --do_export=true
 
-python tool/eval_sent.py \
+python tool/eval_intent.py \
 --input_file=${OUTPUTDIR}/debug/predict.${PREDICTTAG}.json \
 --output_file=${OUTPUTDIR}/debug/predict.${PREDICTTAG}.sent
 
