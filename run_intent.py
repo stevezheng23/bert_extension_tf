@@ -552,7 +552,7 @@ def create_model(bert_config,
     
     loss = tf.constant(0.0, dtype=tf.float32)
     if mode not in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL]:
-        return (loss, intent_predict_ids, intent_predict_scores, intent_predict_probs,
+        return (loss, sent_embed, intent_predict_ids, intent_predict_scores, intent_predict_probs,
             topic_predict_ids, topic_predict_scores, topic_predict_probs,
             ability_predict_ids, ability_predict_scores, ability_predict_probs)
     
@@ -583,7 +583,7 @@ def create_model(bert_config,
             ability_loss = tf.reduce_sum(ability_loss * ability_label_mask) / tf.reduce_sum(tf.reduce_max(ability_label_mask, axis=-1))
             loss = loss + ability_loss
     
-    return (loss, intent_predict_ids, intent_predict_scores, intent_predict_probs,
+    return (loss, sent_embed, intent_predict_ids, intent_predict_scores, intent_predict_probs,
         topic_predict_ids, topic_predict_scores, topic_predict_probs,
         ability_predict_ids, ability_predict_scores, ability_predict_probs)
 
@@ -613,7 +613,7 @@ def model_fn_builder(bert_config,
         topic_label_ids = features["topic_label_ids"] if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL] else None
         ability_label_ids = features["ability_label_ids"] if mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL] else None
         
-        (loss, intent_predict_ids, intent_predict_scores, intent_predict_probs,
+        (loss, sent_embed, intent_predict_ids, intent_predict_scores, intent_predict_probs,
             topic_predict_ids, topic_predict_scores, topic_predict_probs,
             ability_predict_ids, ability_predict_scores, ability_predict_probs) = create_model(bert_config,
                 input_ids, input_masks, segment_ids, intent_label_ids, intent_label_list,
@@ -682,6 +682,7 @@ def model_fn_builder(bert_config,
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=mode,
                 predictions={
+                    "sent_embed": sent_embed,
                     "intent_predict_id": intent_predict_ids,
                     "intent_predict_score": intent_predict_scores,
                     "intent_predict_prob": intent_predict_probs
@@ -735,6 +736,7 @@ def decode_predicts(predicts,
         
         decoded_predict = {
             "text": " ".join(decoded_tokens),
+            "sent_embed": [float(embed) for embed in predict["sent_embed"]],
             "intent_label": intent_label_list[predict["intent_label_id"]],
             "intent_predict": intent_label_list[predict["intent_predict_id"]],
             "intent_score": float(predict["intent_predict_score"]),
@@ -918,6 +920,7 @@ def main(_):
         predicts = [{
             "input_ids": feature.input_ids,
             "input_masks": feature.input_masks,
+            "sent_embed": predict["sent_embed"],
             "intent_label_id": feature.intent_label_id,
             "intent_predict_id": predict["intent_predict_id"],
             "intent_predict_score": predict["intent_predict_score"],
